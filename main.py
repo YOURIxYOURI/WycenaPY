@@ -318,6 +318,12 @@ def main(page: ft.Page):
         pdf.add_page()
         pdf.add_font("Roboto", style="", fname="Roboto-Regular.ttf")
         pdf.add_font("Roboto", style="B", fname="Roboto-Bold.ttf")
+        logo_path = "logo.png"
+
+        if os.path.exists(logo_path):
+            with pdf.local_context(fill_opacity=0.1):
+                with pdf.rotation(angle=45, x=105, y=148):
+                    pdf.image(logo_path, x=45, y=110, w=150)
 
         pdf.set_font("Roboto", 'B', 22)
         pdf.cell(0, 10, "OFERTA CENOWA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
@@ -333,7 +339,6 @@ def main(page: ft.Page):
         pdf.set_font("Roboto", 'B', 12)
         pdf.cell(0, 8, f"Przygotowano dla: {dla_kogo}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
 
-        logo_path = "logo.png"
         if os.path.exists(logo_path):
             pdf.image(logo_path, x=150, y=10, w=50)
 
@@ -384,12 +389,18 @@ def main(page: ft.Page):
         pdf.cell(150, 10, "Suma całkowita BRUTTO do zapłaty:", align='R')
         pdf.cell(40, 10, f"{total_brutto:.2f} zł", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        # Stopka
         pdf.ln(15)
-        pdf.set_font("Roboto", '', 9)
+        pdf.set_font("Roboto", '', 8)
         pdf.set_text_color(100, 100, 100)
-        stopka_tekst = "Wycena ma charakter poglądowy i jest ważna przez 14 dni od daty wystawienia. Dokument wygenerowany elektronicznie."
-        pdf.cell(0, 10, stopka_tekst, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        stopka_tekst = (
+            "Termin ważności oferty: 7 dni. Niniejsza oferta ma charakter informacyjny. Wiążąca umowa sprzedaży "
+            "zostaje zawarta w momencie opłacenia faktury Pro Forma, która określa ostateczną specyfikację "
+            "i warunki cenowe. Zastrzegamy sobie prawo do aktualizacji ceny w przypadku zmiany specyfikacji "
+            "przez Zamawiającego (np. zmiana wymiarów urządzenia lub zmiana komponentów na życzenie)."
+        )
+
+        pdf.multi_cell(0, 5, stopka_tekst, align='C')
 
         pdf.output(sciezka_zapisu)
         pokaz_blad("Zapisano pomyślnie na dysku!", ft.Colors.GREEN_400)
