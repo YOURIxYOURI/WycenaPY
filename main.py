@@ -78,7 +78,8 @@ def main(page: ft.Page):
         width=450,
         editable=True,
         enable_filter=True,
-        enable_search=True
+        enable_search=True,
+        border_color=ft.Colors.WHITE24
     )
 
     def odswiez_dropdown():
@@ -96,8 +97,8 @@ def main(page: ft.Page):
 
     odswiez_dropdown()
 
-    qty_input = ft.TextField(label="Ilość materiału", value="1", width=120)
-    margin_input = ft.TextField(label="Marża (%)", value="30", width=100)
+    qty_input = ft.TextField(label="Ilość materiału", value="1", width=120, border_color=ft.Colors.WHITE24)
+    margin_input = ft.TextField(label="Marża (%)", value="30", width=100, border_color=ft.Colors.WHITE24)
 
     suma_skladnikow_text = ft.Text("Koszt produkcji: 0.00 zł  |  Sugerowana cena (z marżą): 0.00 zł",
                                    weight=ft.FontWeight.BOLD)
@@ -166,16 +167,18 @@ def main(page: ft.Page):
         except ValueError:
             pass
 
-    kurs_euro_input = ft.TextField(label="Kurs EUR (zł)", value="4.30", width=120, on_change=przelicz_kurs)
-    klient_input = ft.TextField(label="Odbiorca / Klient", value="", width=300)
+    kurs_euro_input = ft.TextField(label="Kurs EUR (zł)", value="4.30", width=120, on_change=przelicz_kurs,
+                                   border_color=ft.Colors.WHITE24)
+    klient_input = ft.TextField(label="Odbiorca / Klient", value="", width=300, border_color=ft.Colors.WHITE24)
+    nr_oferty_input = ft.TextField(label="Numer oferty", value="", width=200, border_color=ft.Colors.WHITE24)
 
-    # --- NOWE POLE UWAG ---
     uwagi_input = ft.TextField(
         label="Dodatkowe uwagi do oferty (opcjonalnie)",
         multiline=True,
         min_lines=2,
         max_lines=4,
-        width=800
+        width=800,
+        border_color=ft.Colors.WHITE24
     )
 
     def usun_ze_skladnikow(index):
@@ -226,8 +229,17 @@ def main(page: ft.Page):
         except ValueError:
             pokaz_blad("Wpisz poprawne liczby w polach Ilość/Marża/Kurs EUR!")
 
-    nazwa_produktu_input = ft.TextField(label="Nazwa gotowego produktu (np. Skrzynia A)", width=400)
-    ilosc_produktu_input = ft.TextField(label="Ilość sztuk", value="1", width=100)
+    nazwa_produktu_input = ft.TextField(
+        label="Nazwa gotowego produktu (np. Skrzynia A)",
+        width=400,
+        border_color=ft.Colors.WHITE24
+    )
+    ilosc_produktu_input = ft.TextField(
+        label="Ilość sztuk",
+        value="1",
+        width=100,
+        border_color=ft.Colors.WHITE24
+    )
     suma_wyceny_text = ft.Text("Suma całkowita: 0.00 zł", size=24, weight=ft.FontWeight.BOLD,
                                color=ft.Colors.GREEN_400)
 
@@ -335,8 +347,11 @@ def main(page: ft.Page):
                 with pdf.rotation(angle=45, x=105, y=148):
                     pdf.image(logo_path, x=45, y=110, w=150)
 
+        nr_dok = nr_oferty_input.value.strip()
+        tytul_dokumentu = f"OFERTA NR {nr_dok}" if nr_dok else "OFERTA CENOWA"
+
         pdf.set_font("Roboto", 'B', 22)
-        pdf.cell(0, 10, "OFERTA CENOWA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
+        pdf.cell(0, 10, tytul_dokumentu, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
 
         dzisiejsza_data = datetime.now().strftime("%d.%m.%Y")
         pdf.set_font("Roboto", '', 11)
@@ -426,10 +441,10 @@ def main(page: ft.Page):
     sekcja_pdf_container = ft.Container(
         content=ft.Column([
             ft.Text("Opcje eksportu dokumentu", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_100),
-            ft.Row([klient_input, kurs_euro_input]),
+            ft.Row([nr_oferty_input, klient_input, kurs_euro_input], spacing=20),
             uwagi_input,
             ft.Button(
-                "Generuj PDF",
+                "Generuj oficjalny PDF",
                 icon=ft.Icons.PICTURE_AS_PDF,
                 on_click=zapytaj_o_sciezke,
                 bgcolor=ft.Colors.AMBER_700,
@@ -466,11 +481,16 @@ def main(page: ft.Page):
 
     ], scroll="adaptive")
 
-    db_nazwa_input = ft.TextField(label="Nazwa nowego materiału", width=250)
-    db_jednostka_input = ft.TextField(label="Jednostka", width=150)
-    db_cena_input = ft.TextField(label="Cena", width=100)
-    db_waluta_dropdown = ft.Dropdown(label="Waluta", options=[ft.dropdown.Option("PLN"), ft.dropdown.Option("EUR")],
-                                     value="PLN", width=100)
+    db_nazwa_input = ft.TextField(label="Nazwa nowego materiału", width=250, border_color=ft.Colors.WHITE24)
+    db_jednostka_input = ft.TextField(label="Jednostka", width=150, border_color=ft.Colors.WHITE24)
+    db_cena_input = ft.TextField(label="Cena", width=100, border_color=ft.Colors.WHITE24)
+    db_waluta_dropdown = ft.Dropdown(
+        label="Waluta",
+        options=[ft.dropdown.Option("PLN"), ft.dropdown.Option("EUR")],
+        value="PLN",
+        width=100,
+        border_color=ft.Colors.WHITE24
+    )
 
     tabela_bazy = ft.DataTable(
         columns=[
