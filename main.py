@@ -319,9 +319,8 @@ def main(page: ft.Page):
         pdf.add_font("Roboto", style="", fname="Roboto-Regular.ttf")
         pdf.add_font("Roboto", style="B", fname="Roboto-Bold.ttf")
 
-
         pdf.set_font("Roboto", 'B', 22)
-        pdf.cell(0, 10, "OFERTA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
+        pdf.cell(0, 10, "OFERTA CENOWA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
 
         dzisiejsza_data = datetime.now().strftime("%d.%m.%Y")
         pdf.set_font("Roboto", '', 11)
@@ -342,34 +341,53 @@ def main(page: ft.Page):
 
         y_linii = pdf.get_y()
         pdf.line(10, y_linii, 200, y_linii)
-        pdf.ln(10)  # Odstęp pod linią
+        pdf.ln(10)
 
         h = 8
-        pdf.set_font("Roboto", 'B', 10)
-        pdf.set_fill_color(230, 230, 230)  # Jasnoszary kolor tła dla nagłówków
+        pdf.set_font("Roboto", 'B', 9)
+        pdf.set_fill_color(230, 230, 230)
 
-        pdf.cell(90, h, "Nazwa Produktu", border=1, fill=True)
-        pdf.cell(25, h, "Ilość", border=1, align='C', fill=True)
-        pdf.cell(35, h, "Cena jedn.", border=1, align='C', fill=True)
-        pdf.cell(40, h, "Suma", border=1, align='C', fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(80, h, "Nazwa Produktu", border=1, fill=True)
+        pdf.cell(15, h, "Ilość", border=1, align='C', fill=True)
+        pdf.cell(30, h, "Cena Netto", border=1, align='C', fill=True)
+        pdf.cell(30, h, "Wartość Netto", border=1, align='C', fill=True)
+        pdf.cell(35, h, "Wartość Brutto", border=1, align='C', fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        pdf.set_font("Roboto", '', 10)
-        suma_total = 0
+        pdf.set_font("Roboto", '', 9)
+        total_netto = 0
+        total_brutto = 0
+
         for prod in wycena_dla_klienta:
-            pdf.cell(90, h, prod["nazwa"], border=1)
-            pdf.cell(25, h, f'{prod["ilosc"]} szt', border=1, align='C')
-            pdf.cell(35, h, f'{prod["cena_jedn"]:.2f} zł', border=1, align='C')
-            pdf.cell(40, h, f'{prod["suma"]:.2f} zł', border=1, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            suma_total += prod["suma"]
+            suma_netto = prod["suma"]
+            suma_brutto = suma_netto * 1.23
+
+            pdf.cell(80, h, prod["nazwa"], border=1)
+            pdf.cell(15, h, f'{prod["ilosc"]} szt', border=1, align='C')
+            pdf.cell(30, h, f'{prod["cena_jedn"]:.2f} zł', border=1, align='C')
+            pdf.cell(30, h, f'{suma_netto:.2f} zł', border=1, align='C')
+            pdf.cell(35, h, f'{suma_brutto:.2f} zł', border=1, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+            total_netto += suma_netto
+            total_brutto += suma_brutto
 
         pdf.ln(5)
-        pdf.set_font("Roboto", 'B', 13)
-        pdf.cell(150, 10, "Suma całkowita do zapłaty:", align='R')
-        pdf.cell(40, 10, f"{suma_total:.2f} zł", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        kwota_vat = total_brutto - total_netto
 
+        pdf.set_font("Roboto", '', 11)
+        pdf.cell(150, 7, "Suma całkowita Netto:", align='R')
+        pdf.cell(40, 7, f"{total_netto:.2f} zł", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        pdf.cell(150, 7, "Kwota VAT (23%):", align='R')
+        pdf.cell(40, 7, f"{kwota_vat:.2f} zł", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        pdf.set_font("Roboto", 'B', 13)
+        pdf.cell(150, 10, "Suma całkowita BRUTTO do zapłaty:", align='R')
+        pdf.cell(40, 10, f"{total_brutto:.2f} zł", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+        # Stopka
         pdf.ln(15)
         pdf.set_font("Roboto", '', 9)
-        pdf.set_text_color(100, 100, 100)  # Szary tekst stopki
+        pdf.set_text_color(100, 100, 100)
         stopka_tekst = "Wycena ma charakter poglądowy i jest ważna przez 14 dni od daty wystawienia. Dokument wygenerowany elektronicznie."
         pdf.cell(0, 10, stopka_tekst, align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
@@ -395,7 +413,7 @@ def main(page: ft.Page):
 
         ft.Row([
             kurs_euro_input,
-            klient_input,  # <-- DODANO TUTAJ W INTERFEJSIE
+            klient_input,
             ft.Button("Generuj PDF dla klienta", on_click=zapytaj_o_sciezke, bgcolor=ft.Colors.AMBER_700,
                       color=ft.Colors.WHITE)
         ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER)
