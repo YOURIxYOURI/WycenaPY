@@ -1,0 +1,27 @@
+{
+    "Płyta MDF 18mm": {
+        "unit": "m2",
+        "price": 120.0,
+        "currency": "PLN"
+    },
+    "Śruba M8x40": {
+        "unit": "szt",
+        "price": 1.2,
+        "currency": "PLN"
+    },
+    "Zamek xyz": {
+        "unit": "szt",
+        "price": 80.0,
+        "currency": "PLN"
+    },
+    "profil aluminiowy 30x30": {
+        "unit": "m",
+        "price": 35.5,
+        "currency": "PLN"
+    },
+    "profil 40x40": {
+        "unit": "szt",
+        "price": 4.0,
+        "currency": "EUR"
+    }
+}
