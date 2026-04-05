@@ -8,6 +8,7 @@ from fpdf.enums import XPos, YPos
 
 DB_FILE = "materials_db.json"
 
+
 def ensure_fonts():
     fonts = {
         "Roboto-Regular.ttf": "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf",
@@ -17,6 +18,7 @@ def ensure_fonts():
         if not os.path.exists(filename):
             print(f"Pobieranie czcionki {filename}...")
             urllib.request.urlretrieve(url, filename)
+
 
 def load_database():
     if not os.path.exists(DB_FILE):
@@ -42,10 +44,11 @@ def save_database(db_data):
     with open(DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(db_data, f, indent=4, ensure_ascii=False)
 
+
 def main(page: ft.Page):
     page.title = "Kalkulator Wycen - Generator Ofert"
     page.window.width = 1100
-    page.window.height = 950
+    page.window.height = 1000
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 30
     page.scroll = "auto"
@@ -163,10 +166,17 @@ def main(page: ft.Page):
         except ValueError:
             pass
 
-
     kurs_euro_input = ft.TextField(label="Kurs EUR (zł)", value="4.30", width=120, on_change=przelicz_kurs)
+    klient_input = ft.TextField(label="Odbiorca / Klient", value="", width=300)
 
-    klient_input = ft.TextField(label="Odbiorca / Klient", value="", width=250)
+    # --- NOWE POLE UWAG ---
+    uwagi_input = ft.TextField(
+        label="Dodatkowe uwagi do oferty (opcjonalnie)",
+        multiline=True,
+        min_lines=2,
+        max_lines=4,
+        width=800
+    )
 
     def usun_ze_skladnikow(index):
         if 0 <= index < len(skladniki_produktu):
@@ -218,7 +228,7 @@ def main(page: ft.Page):
 
     nazwa_produktu_input = ft.TextField(label="Nazwa gotowego produktu (np. Skrzynia A)", width=400)
     ilosc_produktu_input = ft.TextField(label="Ilość sztuk", value="1", width=100)
-    suma_wyceny_text = ft.Text("Suma całkowita dla klienta: 0.00 zł", size=24, weight=ft.FontWeight.BOLD,
+    suma_wyceny_text = ft.Text("Suma całkowita: 0.00 zł", size=24, weight=ft.FontWeight.BOLD,
                                color=ft.Colors.GREEN_400)
 
     tabela_wyceny = ft.DataTable(
@@ -389,6 +399,14 @@ def main(page: ft.Page):
         pdf.cell(150, 10, "Suma całkowita BRUTTO do zapłaty:", align='R')
         pdf.cell(40, 10, f"{total_brutto:.2f} zł", align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
+        uwagi_tekst = uwagi_input.value.strip()
+        if uwagi_tekst:
+            pdf.ln(10)
+            pdf.set_font("Roboto", 'B', 10)
+            pdf.cell(0, 6, "Uwagi do oferty:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
+            pdf.set_font("Roboto", '', 9)
+            pdf.multi_cell(0, 5, uwagi_tekst, align='L')
+
         pdf.ln(15)
         pdf.set_font("Roboto", '', 8)
         pdf.set_text_color(100, 100, 100)
@@ -405,6 +423,26 @@ def main(page: ft.Page):
         pdf.output(sciezka_zapisu)
         pokaz_blad("Zapisano pomyślnie na dysku!", ft.Colors.GREEN_400)
 
+    sekcja_pdf_container = ft.Container(
+        content=ft.Column([
+            ft.Text("Opcje eksportu dokumentu", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_100),
+            ft.Row([klient_input, kurs_euro_input]),
+            uwagi_input,
+            ft.Button(
+                "Generuj PDF",
+                icon=ft.Icons.PICTURE_AS_PDF,
+                on_click=zapytaj_o_sciezke,
+                bgcolor=ft.Colors.AMBER_700,
+                color=ft.Colors.WHITE,
+                height=45
+            )
+        ]),
+        padding=20,
+        bgcolor=ft.Colors.BLACK26,
+        border_radius=10,
+        border=ft.Border.all(1, ft.Colors.WHITE12)
+    )
+
     kalkulator_content = ft.Column([
         ft.Text("KROK 1: Skompletuj produkt z materiałów", size=20, weight=ft.FontWeight.BOLD,
                 color=ft.Colors.BLUE_200),
@@ -418,18 +456,15 @@ def main(page: ft.Page):
                 ft.Button("Zatwierdź i dodaj do wyceny", on_click=zatwierdz_produkt, bgcolor=ft.Colors.GREEN_600,
                           color=ft.Colors.WHITE)]),
         ft.Divider(height=30, color=ft.Colors.WHITE24),
-        ft.Text("KROK 2: Gotowa wycena dla klienta", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_200),
+        ft.Text("KROK 2: Gotowa wycena", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_200),
         tabela_wyceny,
         suma_wyceny_text,
+        ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
 
-        ft.Row([
-            kurs_euro_input,
-            klient_input,
-            ft.Button("Generuj PDF dla klienta", on_click=zapytaj_o_sciezke, bgcolor=ft.Colors.AMBER_700,
-                      color=ft.Colors.WHITE)
-        ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        # Wrzucamy nasz ładny kontener na sam dół kalkulatora
+        sekcja_pdf_container
+
     ], scroll="adaptive")
-
 
     db_nazwa_input = ft.TextField(label="Nazwa nowego materiału", width=250)
     db_jednostka_input = ft.TextField(label="Jednostka", width=150)
