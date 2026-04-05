@@ -5,9 +5,9 @@ import urllib.request
 from datetime import datetime
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
+from pypdf import PdfReader
 
 DB_FILE = "materials_db.json"
-
 
 def ensure_fonts():
     fonts = {
@@ -97,7 +97,7 @@ def main(page: ft.Page):
 
     odswiez_dropdown()
 
-    qty_input = ft.TextField(label="Ilość materiału", value="1", width=120, border_color=ft.Colors.WHITE24)
+    qty_input = ft.TextField(label="Ilość", value="1", width=120, border_color=ft.Colors.WHITE24)
     margin_input = ft.TextField(label="Marża (%)", value="30", width=100, border_color=ft.Colors.WHITE24)
 
     suma_skladnikow_text = ft.Text("Koszt produkcji: 0.00 zł  |  Sugerowana cena (z marżą): 0.00 zł",
@@ -230,7 +230,7 @@ def main(page: ft.Page):
             pokaz_blad("Wpisz poprawne liczby w polach Ilość/Marża/Kurs EUR!")
 
     nazwa_produktu_input = ft.TextField(
-        label="Nazwa gotowego produktu (np. Skrzynia A)",
+        label="Nazwa produktu (np. Skrzynia A)",
         width=400,
         border_color=ft.Colors.WHITE24
     )
@@ -246,7 +246,7 @@ def main(page: ft.Page):
     tabela_wyceny = ft.DataTable(
         data_row_max_height=float("inf"),
         columns=[
-            ft.DataColumn(ft.Text("Gotowy Produkt (dla klienta)")),
+            ft.DataColumn(ft.Text("Gotowy Produkt")),
             ft.DataColumn(ft.Text("Ilość")),
             ft.DataColumn(ft.Text("Cena jedn.")),
             ft.DataColumn(ft.Text("Suma")),
@@ -260,6 +260,30 @@ def main(page: ft.Page):
             del wycena_dla_klienta[index]
             odswiez_tabele_wyceny()
 
+    # --- NOWA FUNKCJA EDYCJI ---
+    def edytuj_z_wyceny(index):
+        # 1. Zabezpieczenie: Nie pozwalamy edytować, jeśli "stół roboczy" nie jest pusty
+        if skladniki_produktu:
+            pokaz_blad("Wyczyść 'Krok 1' (usuń materiały), zanim zaczniesz edytować gotowy produkt!")
+            return
+
+        if 0 <= index < len(wycena_dla_klienta):
+            prod = wycena_dla_klienta[index]
+
+            # 2. Przerzucamy dane z powrotem do górnych pól tekstowych
+            nazwa_produktu_input.value = prod["nazwa"]
+            ilosc_produktu_input.value = str(prod["ilosc"])
+
+            # 3. Rozpakowujemy składniki z powrotem na stół roboczy
+            skladniki_produktu.extend([dict(item) for item in prod["skladniki"]])
+
+            # 4. Usuwamy produkt z wyceny końcowej (wróci tam po kliknięciu Zatwierdź)
+            del wycena_dla_klienta[index]
+
+            ukryj_blad()
+            odswiez_tabele_skladnikow()
+            odswiez_tabele_wyceny()
+
     def odswiez_tabele_wyceny():
         tabela_wyceny.rows.clear()
         suma_calkowita = 0
@@ -271,6 +295,24 @@ def main(page: ft.Page):
                 ],
                 spacing=2, alignment=ft.MainAxisAlignment.CENTER
             )
+
+            # --- ZMIANA: Dodajemy przycisk edycji obok kosza ---
+            akcje = ft.Row([
+                ft.IconButton(
+                    icon=ft.Icons.EDIT,
+                    icon_color=ft.Colors.BLUE_400,
+                    tooltip="Edytuj ten produkt",
+                    on_click=lambda e, idx=i: edytuj_z_wyceny(idx)
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.DELETE,
+                    icon_color=ft.Colors.RED_400,
+                    tooltip="Usuń z wyceny",
+                    on_click=lambda e, idx=i: usun_z_wyceny(idx)
+                )
+            ])
+            # ----------------------------------------------------
+
             tabela_wyceny.rows.append(
                 ft.DataRow(
                     cells=[
@@ -278,13 +320,12 @@ def main(page: ft.Page):
                         ft.DataCell(ft.Text(f'{prod["ilosc"]} szt')),
                         ft.DataCell(ft.Text(f'{prod["cena_jedn"]:.2f} zł')),
                         ft.DataCell(ft.Text(f'{prod["suma"]:.2f} zł')),
-                        ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_400,
-                                                  on_click=lambda e, idx=i: usun_z_wyceny(idx))),
+                        ft.DataCell(akcje),  # Wstawiamy zgrupowane przyciski
                     ]
                 )
             )
             suma_calkowita += prod["suma"]
-        suma_wyceny_text.value = f"Suma całkowita dla klienta: {suma_calkowita:.2f} zł"
+        suma_wyceny_text.value = f"Suma całkowita netto: {suma_calkowita:.2f} zł"
         page.update()
 
     def zatwierdz_produkt(e):
@@ -435,22 +476,84 @@ def main(page: ft.Page):
 
         pdf.multi_cell(0, 5, stopka_tekst, align='C')
 
+        stan_aplikacji = {
+            "skladniki_produktu": skladniki_produktu,
+            "wycena_dla_klienta": wycena_dla_klienta,
+            "nr_oferty": nr_oferty_input.value,
+            "klient": klient_input.value,
+            "uwagi": uwagi_input.value,
+            "kurs_euro": kurs_euro_input.value
+        }
+
+        ukryty_json = json.dumps(stan_aplikacji, ensure_ascii=False)
+        pdf.set_keywords(ukryty_json)
+
         pdf.output(sciezka_zapisu)
         pokaz_blad("Zapisano pomyślnie na dysku!", ft.Colors.GREEN_400)
+
+        pdf.output(sciezka_zapisu)
+        pokaz_blad("Zapisano pomyślnie na dysku!", ft.Colors.GREEN_400)
+
+    async def otworz_okno_importu(e):
+        # Używamy głównego 'file_picker', zdefiniowanego na górze kodu
+        wybrane_pliki = await file_picker.pick_files(
+            dialog_title="Wybierz ofertę PDF do wczytania",
+            allowed_extensions=["pdf"]
+        )
+
+        if wybrane_pliki and len(wybrane_pliki) > 0:
+            sciezka = wybrane_pliki[0].path
+            try:
+                reader = PdfReader(sciezka)
+                meta = reader.metadata
+
+                if meta and "/Keywords" in meta:
+                    stan_json = meta["/Keywords"]
+                    stan = json.loads(stan_json)
+
+                    skladniki_produktu.clear()
+                    skladniki_produktu.extend(stan.get("skladniki_produktu", []))
+
+                    wycena_dla_klienta.clear()
+                    wycena_dla_klienta.extend(stan.get("wycena_dla_klienta", []))
+
+                    nr_oferty_input.value = stan.get("nr_oferty", "")
+                    klient_input.value = stan.get("klient", "")
+                    uwagi_input.value = stan.get("uwagi", "")
+                    kurs_euro_input.value = stan.get("kurs_euro", "4.30")
+
+                    page.update()
+                    odswiez_tabele_skladnikow()
+                    odswiez_tabele_wyceny()
+                    pokaz_blad(f"Pomyślnie zaimportowano projekt z pliku!", ft.Colors.GREEN_400)
+                else:
+                    pokaz_blad("Ten plik PDF nie zawiera ukrytych danych projektu (brak metadanych).")
+            except Exception as ex:
+                pokaz_blad(f"Błąd podczas wczytywania pliku: {str(ex)}")
 
     sekcja_pdf_container = ft.Container(
         content=ft.Column([
             ft.Text("Opcje eksportu dokumentu", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_100),
             ft.Row([nr_oferty_input, klient_input, kurs_euro_input], spacing=20),
             uwagi_input,
-            ft.Button(
-                "Generuj oficjalny PDF",
-                icon=ft.Icons.PICTURE_AS_PDF,
-                on_click=zapytaj_o_sciezke,
-                bgcolor=ft.Colors.AMBER_700,
-                color=ft.Colors.WHITE,
-                height=45
-            )
+            ft.Row([
+                ft.Button(
+                    "Generuj PDF",
+                    icon=ft.Icons.PICTURE_AS_PDF,
+                    on_click=zapytaj_o_sciezke,
+                    bgcolor=ft.Colors.AMBER_700,
+                    color=ft.Colors.WHITE,
+                    height=45
+                ),
+                ft.Button(
+                    "Wczytaj projekt z PDF",
+                    icon=ft.Icons.UPLOAD_FILE,
+                    on_click=otworz_okno_importu,
+                    bgcolor=ft.Colors.TEAL_700,
+                    color=ft.Colors.WHITE,
+                    height=45
+                )
+            ], spacing=20)
         ]),
         padding=20,
         bgcolor=ft.Colors.BLACK26,
