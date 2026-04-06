@@ -19,7 +19,6 @@ def ensure_fonts():
             print(f"Pobieranie czcionki {filename}...")
             urllib.request.urlretrieve(url, filename)
 
-
 def load_database():
     if not os.path.exists(DB_FILE):
         sample_db = {
@@ -39,11 +38,9 @@ def load_database():
                 value["currency"] = "PLN"
         return db
 
-
 def save_database(db_data):
     with open(DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(db_data, f, indent=4, ensure_ascii=False)
-
 
 def main(page: ft.Page):
     page.title = "Kalkulator Wycen - Generator Ofert"
@@ -115,29 +112,6 @@ def main(page: ft.Page):
         rows=[]
     )
 
-    def odswiez_tabele_skladnikow():
-        tabela_skladnikow.rows.clear()
-        total_base = 0
-        total_margin = 0
-        for i, item in enumerate(skladniki_produktu):
-            tabela_skladnikow.rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(item["name"])),
-                        ft.DataCell(ft.Text(f'{item["quantity"]} {item["unit"]}')),
-                        ft.DataCell(ft.Text(f'{item["base_price"]:.2f} zł')),
-                        ft.DataCell(ft.Text(f'{item["base_total"]:.2f} zł')),
-                        ft.DataCell(ft.Text(f'{item["margin_total"]:.2f} zł')),
-                        ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_400,
-                                                  on_click=lambda e, idx=i: usun_ze_skladnikow(idx))),
-                    ]
-                )
-            )
-            total_base += item["base_total"]
-            total_margin += item["margin_total"]
-        suma_skladnikow_text.value = f"Koszt produkcji: {total_base:.2f} zł  |  Sugerowana cena (z marżą): {total_margin:.2f} zł"
-        page.update()
-
     def przelicz_kurs(e):
         try:
             nowy_kurs = float(kurs_euro_input.value.replace(',', '.'))
@@ -181,10 +155,55 @@ def main(page: ft.Page):
         border_color=ft.Colors.WHITE24
     )
 
+    def odswiez_tabele_skladnikow():
+        tabela_skladnikow.rows.clear()
+        total_base = 0
+        total_margin = 0
+        for i, item in enumerate(skladniki_produktu):
+            akcje = ft.Row([
+                ft.IconButton(icon=ft.Icons.EDIT, icon_color=ft.Colors.BLUE_400, tooltip="Edytuj materiał",
+                              on_click=lambda e, idx=i: edytuj_ze_skladnikow(idx)),
+                ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_400, tooltip="Usuń materiał",
+                              on_click=lambda e, idx=i: usun_ze_skladnikow(idx))
+            ])
+
+            tabela_skladnikow.rows.append(
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text(item["name"])),
+                        ft.DataCell(ft.Text(f'{item["quantity"]} {item["unit"]}')),
+                        ft.DataCell(ft.Text(f'{item["base_price"]:.2f} zł')),
+                        ft.DataCell(ft.Text(f'{item["base_total"]:.2f} zł')),
+                        ft.DataCell(ft.Text(f'{item["margin_total"]:.2f} zł')),
+                        ft.DataCell(akcje),
+                    ]
+                )
+            )
+            total_base += item["base_total"]
+            total_margin += item["margin_total"]
+        suma_skladnikow_text.value = f"Koszt produkcji: {total_base:.2f} zł  |  Sugerowana cena (z marżą): {total_margin:.2f} zł"
+        page.update()
+
     def usun_ze_skladnikow(index):
         if 0 <= index < len(skladniki_produktu):
             del skladniki_produktu[index]
             odswiez_tabele_skladnikow()
+
+    def edytuj_ze_skladnikow(index):
+        if 0 <= index < len(skladniki_produktu):
+            item = skladniki_produktu[index]
+
+            display_str = f"{item['name']} [{item['unit']}] ({item['currency']})"
+
+            material_dropdown.value = display_str
+            qty_input.value = str(item["quantity"])
+            margin_input.value = str(item["margin"])
+
+            del skladniki_produktu[index]
+
+            ukryj_blad()
+            odswiez_tabele_skladnikow()
+            page.update()
 
     def dodaj_material(e):
         selected_display = material_dropdown.value
@@ -227,7 +246,7 @@ def main(page: ft.Page):
             ukryj_blad()
             odswiez_tabele_skladnikow()
         except ValueError:
-            pokaz_blad("Wpisz poprawne liczby w polach Ilość/Marża/Kurs EUR!")
+            pokaz_blad("Wpisz poprawną liczby w polach Ilość/Marża/Kurs EUR!")
 
     nazwa_produktu_input = ft.TextField(
         label="Nazwa produktu (np. Skrzynia A)",
@@ -260,9 +279,7 @@ def main(page: ft.Page):
             del wycena_dla_klienta[index]
             odswiez_tabele_wyceny()
 
-    # --- NOWA FUNKCJA EDYCJI ---
     def edytuj_z_wyceny(index):
-        # 1. Zabezpieczenie: Nie pozwalamy edytować, jeśli "stół roboczy" nie jest pusty
         if skladniki_produktu:
             pokaz_blad("Wyczyść 'Krok 1' (usuń materiały), zanim zaczniesz edytować gotowy produkt!")
             return
@@ -270,14 +287,11 @@ def main(page: ft.Page):
         if 0 <= index < len(wycena_dla_klienta):
             prod = wycena_dla_klienta[index]
 
-            # 2. Przerzucamy dane z powrotem do górnych pól tekstowych
             nazwa_produktu_input.value = prod["nazwa"]
             ilosc_produktu_input.value = str(prod["ilosc"])
 
-            # 3. Rozpakowujemy składniki z powrotem na stół roboczy
             skladniki_produktu.extend([dict(item) for item in prod["skladniki"]])
 
-            # 4. Usuwamy produkt z wyceny końcowej (wróci tam po kliknięciu Zatwierdź)
             del wycena_dla_klienta[index]
 
             ukryj_blad()
@@ -296,7 +310,6 @@ def main(page: ft.Page):
                 spacing=2, alignment=ft.MainAxisAlignment.CENTER
             )
 
-            # --- ZMIANA: Dodajemy przycisk edycji obok kosza ---
             akcje = ft.Row([
                 ft.IconButton(
                     icon=ft.Icons.EDIT,
@@ -311,7 +324,6 @@ def main(page: ft.Page):
                     on_click=lambda e, idx=i: usun_z_wyceny(idx)
                 )
             ])
-            # ----------------------------------------------------
 
             tabela_wyceny.rows.append(
                 ft.DataRow(
@@ -320,7 +332,7 @@ def main(page: ft.Page):
                         ft.DataCell(ft.Text(f'{prod["ilosc"]} szt')),
                         ft.DataCell(ft.Text(f'{prod["cena_jedn"]:.2f} zł')),
                         ft.DataCell(ft.Text(f'{prod["suma"]:.2f} zł')),
-                        ft.DataCell(akcje),  # Wstawiamy zgrupowane przyciski
+                        ft.DataCell(akcje),
                     ]
                 )
             )
@@ -365,9 +377,25 @@ def main(page: ft.Page):
         if not wycena_dla_klienta:
             pokaz_blad("Wycena końcowa jest pusta! Zbuduj i zatwierdź produkt.")
             return
+
+        nr_dok = nr_oferty_input.value.strip()
+        klient = klient_input.value.strip()
+
+        bezpieczny_nr = nr_dok.replace("/", "_").replace("\\", "_")
+        bezpieczny_klient = klient.replace("/", "_").replace("\\", "_")
+
+        if bezpieczny_nr and bezpieczny_klient:
+            domyslna_nazwa = f"{bezpieczny_nr}_{bezpieczny_klient}.pdf"
+        elif bezpieczny_nr:
+            domyslna_nazwa = f"{bezpieczny_nr}.pdf"
+        elif bezpieczny_klient:
+            domyslna_nazwa = f"{bezpieczny_klient}.pdf"
+        else:
+            domyslna_nazwa = "wycena_projektu.pdf"
+
         sciezka_zapisu = await file_picker.save_file(
             dialog_title="Zapisz wycenę jako...",
-            file_name="wycena_projektu.pdf",
+            file_name=domyslna_nazwa,
             allowed_extensions=["pdf"]
         )
         if sciezka_zapisu:
@@ -384,7 +412,7 @@ def main(page: ft.Page):
         logo_path = "logo.png"
 
         if os.path.exists(logo_path):
-            with pdf.local_context(fill_opacity=0.1):
+            with pdf.local_context(fill_opacity=0.11):
                 with pdf.rotation(angle=45, x=105, y=148):
                     pdf.image(logo_path, x=45, y=110, w=150)
 
@@ -495,7 +523,6 @@ def main(page: ft.Page):
         pokaz_blad("Zapisano pomyślnie na dysku!", ft.Colors.GREEN_400)
 
     async def otworz_okno_importu(e):
-        # Używamy głównego 'file_picker', zdefiniowanego na górze kodu
         wybrane_pliki = await file_picker.pick_files(
             dialog_title="Wybierz ofertę PDF do wczytania",
             allowed_extensions=["pdf"]
@@ -511,11 +538,44 @@ def main(page: ft.Page):
                     stan_json = meta["/Keywords"]
                     stan = json.loads(stan_json)
 
+                    kurs_eur = float(stan.get("kurs_euro", "4.30").replace(',', '.'))
+
+                    def zaktualizuj_skladnik(sk):
+                        nazwa = sk["name"]
+                        if nazwa in db:
+                            sk["raw_price"] = db[nazwa]["price"]
+                            sk["currency"] = db[nazwa].get("currency", "PLN")
+
+                        if sk["currency"] == "EUR":
+                            sk["base_price"] = sk["raw_price"] * kurs_eur
+                        else:
+                            sk["base_price"] = sk["raw_price"]
+
+                        sk["price_with_margin"] = sk["base_price"] * (1 + sk["margin"] / 100)
+                        sk["base_total"] = sk["base_price"] * sk["quantity"]
+                        sk["margin_total"] = sk["price_with_margin"] * sk["quantity"]
+                        return sk
+
+                    zaktualizowane_skladniki = [zaktualizuj_skladnik(sk) for sk in stan.get("skladniki_produktu", [])]
                     skladniki_produktu.clear()
-                    skladniki_produktu.extend(stan.get("skladniki_produktu", []))
+                    skladniki_produktu.extend(zaktualizowane_skladniki)
+
+                    zaktualizowana_wycena = []
+                    for prod in stan.get("wycena_dla_klienta", []):
+                        nowa_cena_jedn = 0
+                        nowe_skladniki = []
+                        for sk in prod["skladniki"]:
+                            zakt_sk = zaktualizuj_skladnik(sk)
+                            nowe_skladniki.append(zakt_sk)
+                            nowa_cena_jedn += zakt_sk["margin_total"]
+
+                        prod["skladniki"] = nowe_skladniki
+                        prod["cena_jedn"] = nowa_cena_jedn
+                        prod["suma"] = nowa_cena_jedn * prod["ilosc"]
+                        zaktualizowana_wycena.append(prod)
 
                     wycena_dla_klienta.clear()
-                    wycena_dla_klienta.extend(stan.get("wycena_dla_klienta", []))
+                    wycena_dla_klienta.extend(zaktualizowana_wycena)
 
                     nr_oferty_input.value = stan.get("nr_oferty", "")
                     klient_input.value = stan.get("klient", "")
@@ -525,7 +585,7 @@ def main(page: ft.Page):
                     page.update()
                     odswiez_tabele_skladnikow()
                     odswiez_tabele_wyceny()
-                    pokaz_blad(f"Pomyślnie zaimportowano projekt z pliku!", ft.Colors.GREEN_400)
+                    pokaz_blad("Pomyślnie wczytano projekt i zaktualizowano ceny z bazy!", ft.Colors.GREEN_400)
                 else:
                     pokaz_blad("Ten plik PDF nie zawiera ukrytych danych projektu (brak metadanych).")
             except Exception as ex:
@@ -579,7 +639,6 @@ def main(page: ft.Page):
         suma_wyceny_text,
         ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
 
-        # Wrzucamy nasz ładny kontener na sam dół kalkulatora
         sekcja_pdf_container
 
     ], scroll="adaptive")
@@ -609,14 +668,21 @@ def main(page: ft.Page):
         tabela_bazy.rows.clear()
         for name, data in db.items():
             waluta = data.get("currency", "PLN")
+
+            akcje = ft.Row([
+                ft.IconButton(icon=ft.Icons.EDIT, icon_color=ft.Colors.BLUE_400, tooltip="Edytuj materiał",
+                              on_click=lambda e, n=name: edytuj_z_bazy(n)),
+                ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_400, tooltip="Usuń z bazy",
+                              on_click=lambda e, n=name: usun_z_bazy(n))
+            ])
+
             tabela_bazy.rows.append(
                 ft.DataRow(
                     cells=[
                         ft.DataCell(ft.Text(name)),
                         ft.DataCell(ft.Text(data["unit"])),
                         ft.DataCell(ft.Text(f'{data["price"]:.2f} {waluta}')),
-                        ft.DataCell(ft.IconButton(icon=ft.Icons.DELETE, icon_color=ft.Colors.RED_400,
-                                                  on_click=lambda e, n=name: usun_z_bazy(n))),
+                        ft.DataCell(akcje),
                     ]
                 )
             )
@@ -629,6 +695,23 @@ def main(page: ft.Page):
             odswiez_tabele_bazy()
             odswiez_dropdown()
             pokaz_blad(f"Usunięto materiał: {nazwa_materialu}", ft.Colors.ORANGE_400)
+
+    def edytuj_z_bazy(nazwa_materialu):
+        if nazwa_materialu in db:
+            data = db[nazwa_materialu]
+
+            db_nazwa_input.value = nazwa_materialu
+            db_jednostka_input.value = data["unit"]
+            db_cena_input.value = str(data["price"])
+            db_waluta_dropdown.value = data.get("currency", "PLN")
+
+            del db[nazwa_materialu]
+            save_database(db)
+
+            ukryj_blad()
+            odswiez_tabele_bazy()
+            odswiez_dropdown()
+            page.update()
 
     def dodaj_do_bazy(e):
         nazwa = db_nazwa_input.value.strip()
@@ -708,6 +791,5 @@ def main(page: ft.Page):
         kalkulator_container,
         baza_container
     )
-
 
 ft.run(main)
